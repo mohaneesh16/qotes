@@ -2,9 +2,16 @@ import path from "node:path";
 import { PrismaClient } from "@prisma/client";
 import { PrismaLibSql } from "@prisma/adapter-libsql";
 
-const dbPath = path.resolve(process.cwd(), "dev.db");
-const adapter = new PrismaLibSql({ url: `file:${dbPath}` });
-const prisma = new PrismaClient({ adapter });
+function createAdapter() {
+  const tursoUrl = process.env.TURSO_DATABASE_URL;
+  const tursoToken = process.env.TURSO_AUTH_TOKEN;
+  if (tursoUrl) {
+    return new PrismaLibSql({ url: tursoUrl, ...(tursoToken ? { authToken: tursoToken } : {}) });
+  }
+  return new PrismaLibSql({ url: `file:${path.resolve(process.cwd(), "dev.db")}` });
+}
+
+const prisma = new PrismaClient({ adapter: createAdapter() });
 
 const quotes = [
   { content: "The only way to do great work is to love what you do.", author: "Steve Jobs", category: "Motivation" },
