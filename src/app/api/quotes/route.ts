@@ -22,14 +22,16 @@ export async function GET(req: NextRequest) {
       : {}),
   };
 
+  const userId = session?.user?.id;
+
   const [quotes, total] = await Promise.all([
     prisma.quote.findMany({
       where,
       include: {
         user: { select: { name: true, image: true } },
-        likes: session?.user?.id
-          ? { where: { userId: session.user.id } }
-          : false,
+        ...(userId
+          ? { likes: { where: { userId } } }
+          : {}),
         _count: { select: { likes: true } },
       },
       orderBy: { createdAt: "desc" },
@@ -42,7 +44,7 @@ export async function GET(req: NextRequest) {
   return NextResponse.json({
     quotes: quotes.map((q) => ({
       ...q,
-      liked: session?.user?.id ? q.likes.length > 0 : false,
+      liked: userId ? ("likes" in q && Array.isArray(q.likes) ? q.likes.length > 0 : false) : false,
       likesCount: q._count.likes,
       likes: undefined,
       _count: undefined,

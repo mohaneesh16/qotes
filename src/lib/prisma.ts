@@ -1,25 +1,22 @@
-import path from "node:path";
 import { PrismaClient } from "@prisma/client";
 import { PrismaLibSql } from "@prisma/adapter-libsql";
 
 const globalForPrisma = globalThis as unknown as { prisma: PrismaClient };
 
-function resolveDbUrl() {
-  const url = process.env.DATABASE_URL;
-  if (!url || url === "file:./dev.db") {
-    return `file:${path.resolve(process.cwd(), "dev.db")}`;
-  }
-  if (url.startsWith("file:./") || url.startsWith("file:../")) {
-    const relPath = url.slice("file:".length);
-    return `file:${path.resolve(process.cwd(), relPath)}`;
-  }
-  return url;
-}
-
 function createPrismaClient() {
-  const url = resolveDbUrl();
-  const authToken = process.env.TURSO_AUTH_TOKEN;
-  const adapter = new PrismaLibSql({ url, ...(authToken ? { authToken } : {}) });
+  // Production: Turso remote database
+  const tursoUrl = process.env.TURSO_DATABASE_URL;
+  const tursoToken = process.env.TURSO_AUTH_TOKEN;
+  if (tursoUrl) {
+    const adapter = new PrismaLibSql({ url: tursoUrl, ...(tursoToken ? { authToken: tursoToken } : {}) });
+    return new PrismaClient({ adapter });
+  }
+
+  // Local dev: SQLite file (path resolved at runtime to avoid Turbopack NFT tracing)
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const path = require("path") as typeof import("path");
+  const dbPath = path.resolve(process.cwd(), "dev.db");
+  const adapter = new PrismaLibSql({ url: `file:${dbPath}` });
   return new PrismaClient({ adapter });
 }
 
